@@ -1,0 +1,1 @@
+🚖 HitchTracker – Your fair & safe ride companion. Track your taxi in real time, see distance, time and route, and get instant cost calculations. No more scams, no more surprises – always know where you are and what you should pay. Transparency and safety in every ride.
