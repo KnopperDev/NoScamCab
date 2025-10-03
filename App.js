@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Button } from "react-native";
+import { View, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import styles from "./styles";
 import * as Location from "expo-location";
 import haversine from "haversine-distance";
+import CustomButton from "./CustomButton";
 
 const getDistance = (coords) => {
   let total = 0;
@@ -30,9 +31,12 @@ function HomeScreen({ navigation }) {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.containerHome}>
       <Text style={styles.title}>HitchTracker</Text>
-      <Button title="Start Ride" onPress={() => navigation.navigate("Map")} />
+      <CustomButton
+        title="Start Ride"
+        onPress={() => navigation.navigate("Map")}
+      />
     </View>
   );
 }
@@ -42,26 +46,26 @@ function MapScreen({ navigation }) {
   const [rideActive, setRideActive] = useState(false);
   const [locations, setLocations] = useState([]);
   const [subscription, setSubscription] = useState(null);
-  const [simulate, setSimulate] = useState(true); // 👈 simulation toggle
+  const [simulate, setSimulate] = useState(true);
 
   const startRide = async () => {
     setRideActive(true);
 
     if (simulate) {
-      // --- Fake movement simulation ---
+      // Fake movement simulation
       let lat = 51.5074;
       let lng = -0.1278;
 
       const fakeTracking = setInterval(() => {
-        lat += 0.001; // ~111m step north
-        lng += 0.001; // ~111m step east
+        lat += 0.001;
+        lng += 0.001;
 
         setLocations((prev) => [...prev, { latitude: lat, longitude: lng }]);
-      }, 2000); // every 2s
+      }, 2000);
 
       setSubscription({ remove: () => clearInterval(fakeTracking) });
     } else {
-      // --- Real GPS tracking ---
+      // Real GPS tracking
       const sub = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
@@ -95,13 +99,13 @@ function MapScreen({ navigation }) {
     }
 
     const totalDistance = getDistance(locations);
-    const price = totalDistance * 2; // example: €2/km
+    const price = totalDistance * 2;
 
     navigation.navigate("Summary", { distance: totalDistance, price });
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.containerMap}>
       <MapView
         style={{ flex: 1, width: "100%" }}
         initialRegion={{
@@ -121,13 +125,30 @@ function MapScreen({ navigation }) {
           </>
         )}
       </MapView>
+
       <View style={styles.buttonContainer}>
-        {!rideActive && <Button title="Start Ride" onPress={startRide} />}
-        {rideActive && <Button title="Stop Ride" onPress={stopRide} />}
         {!rideActive && (
-          <Button
+          <CustomButton
+            title="Start Ride"
+            onPress={startRide}
+            type="primary"
+            fullWidth={true}
+          />
+        )}
+        {rideActive && (
+          <CustomButton
+            title="Stop Ride"
+            onPress={stopRide}
+            type="tertiary"
+            fullWidth={true}
+          />
+        )}
+        {!rideActive && (
+          <CustomButton
             title={`Simulation: ${simulate ? "ON" : "OFF"}`}
             onPress={() => setSimulate((s) => !s)}
+            type="secondary"
+            fullWidth={true}
           />
         )}
       </View>
@@ -140,13 +161,15 @@ function SummaryScreen({ route, navigation }) {
   const { distance, price } = route.params;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.containerSummary}>
       <Text style={styles.title}>Ride Summary</Text>
       <Text>Distance: {distance.toFixed(3)} km</Text>
       <Text>Price: €{price.toFixed(2)}</Text>
-      <Button
+      <CustomButton
         title="Back to Home"
         onPress={() => navigation.navigate("Home")}
+        type="primary"
+        style={styles.backButton}
       />
     </View>
   );
