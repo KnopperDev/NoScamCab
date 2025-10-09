@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TextInput, Alert } from "react-native";
+import { View, Text, FlatList, TextInput, Alert, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MapView, { Marker, Polyline } from "react-native-maps";
@@ -125,7 +125,7 @@ function HomeScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.containerHome}>
+    <View style={styles.containerHome} testID="home-screen">
       <Text style={styles.title}>HitchTracker</Text>
       <Text style={styles.subtitle}>Plan and track your rides</Text>
 
@@ -289,6 +289,40 @@ function MapScreen({ route, navigation }) {
     setDistance(0);
     setPrice(0);
   };
+
+  // if (Platform.OS === "web") {
+  //   return (
+  //     <View style={styles.containerMap}>
+  //       <Text>Map not available on web browser</Text>
+  //       <View style={styles.buttonContainer}>
+  //         {!rideActive && (
+  //           <CustomButton
+  //             title="Start Ride"
+  //             onPress={startRide}
+  //             type="primary"
+  //             fullWidth={true}
+  //           />
+  //         )}
+  //         {rideActive && (
+  //           <CustomButton
+  //             title="Stop Ride"
+  //             onPress={stopRide}
+  //             type="tertiary"
+  //             fullWidth={true}
+  //           />
+  //         )}
+  //         {!rideActive && (
+  //           <CustomButton
+  //             title={`Simulation: ${simulate ? "ON" : "OFF"}`}
+  //             onPress={() => setSimulate((s) => !s)}
+  //             type="secondary"
+  //             fullWidth={true}
+  //           />
+  //         )}
+  //       </View>
+  //     </View>
+  //   );
+  // }
 
   return (
     <View style={styles.containerMap}>
