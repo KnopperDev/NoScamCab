@@ -29,7 +29,8 @@ const geocode = async (query) => {
       )}`,
       {
         headers: {
-          "User-Agent": "HitchTrackerApp/1.0 (your_email@example.com)",
+          "User-Agent": "HitchTracker/1.0 (nickswanenberg@gmail.com)",
+          "Accept-Language": "en",
         },
       }
     );
@@ -94,9 +95,19 @@ function HomeScreen({ navigation }) {
       alert("Please enter both start and destination locations.");
       return;
     }
+    // validate pricePerKm (allow comma as decimal separator)
+    const normalizedPriceStr = (pricePerKm || "").replace(",", ".").trim();
+    const priceNum = parseFloat(normalizedPriceStr);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      alert(
+        "Please enter a valid price per km (use digits, optionally use comma or dot for decimals)."
+      );
+      return;
+    }
 
     try {
       const startCoords = await geocode(startLocation);
+      await new Promise((r) => setTimeout(r, 1500));
       const endCoords = await geocode(endLocation);
 
       if (!startCoords || startCoords.length === 0) {
@@ -112,7 +123,7 @@ function HomeScreen({ navigation }) {
       const end = endCoords[0];
 
       navigation.navigate("Map", {
-        pricePerKm: parseFloat(pricePerKm),
+        pricePerKm: priceNum,
         startLocation: start.display_name,
         endLocation: end.display_name,
         startCoords: start,
@@ -133,9 +144,13 @@ function HomeScreen({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder="2.00"
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
         value={pricePerKm}
-        onChangeText={setPricePerKm}
+        onChangeText={(text) => {
+          // allow only digits, dot and comma
+          const sanitized = text.replace(/[^\d.,]/g, "");
+          setPricePerKm(sanitized);
+        }}
       />
 
       <Text style={styles.priceInfo}>Start Location:</Text>
@@ -145,7 +160,6 @@ function HomeScreen({ navigation }) {
         value={startLocation}
         onChangeText={setStartLocation}
       />
-
       <Text style={styles.priceInfo}>Destination:</Text>
       <TextInput
         style={styles.input}
@@ -220,31 +234,37 @@ function MapScreen({ route, navigation }) {
     setStartTime(now);
 
     if (simulate) {
-      const steps = 20;
-      const latStep = (endCoords.lat - startCoords.lat) / steps;
-      const lonStep = (endCoords.lon - startCoords.lon) / steps;
-      let stepCount = 0;
+      if (!routeCoords || routeCoords.length === 0) {
+        alert("No route available for simulation.");
+        return;
+      }
+
+      let stepIndex = 0;
+      const totalSteps = routeCoords.length;
+      const startTimestamp = Date.now();
+
+      // Start at the first route coordinate
       setLocations([
         {
-          latitude: startCoords.lat,
-          longitude: startCoords.lon,
-          timestamp: now,
+          ...routeCoords[0],
+          timestamp: startTimestamp,
         },
       ]);
 
       const fakeTracking = setInterval(() => {
-        if (stepCount >= steps) {
+        if (stepIndex >= totalSteps) {
           clearInterval(fakeTracking);
           return;
         }
-        const lat = startCoords.lat + latStep * stepCount;
-        const lon = startCoords.lon + lonStep * stepCount;
+
+        const nextPoint = routeCoords[stepIndex];
         setLocations((prev) => [
           ...prev,
-          { latitude: lat, longitude: lon, timestamp: Date.now() },
+          { ...nextPoint, timestamp: Date.now() },
         ]);
-        stepCount++;
-      }, 2000);
+
+        stepIndex++;
+      }, 100); // move every 100ms (adjust speed as needed)
 
       setSubscription({ remove: () => clearInterval(fakeTracking) });
     } else {

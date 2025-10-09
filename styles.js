@@ -7,7 +7,7 @@ export default StyleSheet.create({
     width: "100%",
     justifyContent: "flex-start",
     alignItems: "center",
-    paddingTop: 80,
+    paddingTop: 20,
     paddingHorizontal: 20,
     backgroundColor: "#f0f0f0",
   },
@@ -59,22 +59,21 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
     backgroundColor: "#fff",
-    marginBottom: 20,
   },
 
   // Bottom button panel (Map screen)
   buttonContainer: {
     position: "absolute",
-    bottom: 30,
+    bottom: 40,
     left: 20,
     right: 20,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-around",
     alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 25,
     paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
@@ -93,13 +92,28 @@ export default StyleSheet.create({
     justifyContent: "center",
   },
   buttonPrimary: {
-    backgroundColor: "#00ef44ff",
+    backgroundColor: "#00dd3fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   buttonSecondary: {
-    backgroundColor: "#00ccffff",
+    backgroundColor: "#0080ffff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   buttonTertiary: {
     backgroundColor: "#ff0000ff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   buttonText: {
     color: "#fff",
@@ -115,8 +129,7 @@ export default StyleSheet.create({
   // Stacked buttons spacing for Home & Summary screens
   buttonStack: {
     width: "100%",
-    marginBottom: 15, // vertical spacing between stacked buttons
-    marginTop: 10,
+    marginTop: 20,
   },
 
   // Ride history items
