@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TextInput, Alert } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, FlatList, TextInput } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MapView, { Marker, Polyline } from "react-native-maps";
@@ -29,20 +29,14 @@ const geocode = async (query) => {
       )}`,
       {
         headers: {
-          "User-Agent": "HitchTracker/1.0 (nickswanenberg@gmail.com)",
+          "User-Agent": "HitchTracker/1.0",
           "Accept-Language": "en",
         },
       }
     );
-
-    if (!response.ok) {
-      console.error("Nominatim HTTP error", response.status);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = await response.json();
-    if (data.length === 0) return null;
-
+    if (!data.length) return null;
     return data.map((item) => ({
       lat: parseFloat(item.lat),
       lon: parseFloat(item.lon),
@@ -60,13 +54,11 @@ const getRoute = async (startCoords, endCoords) => {
     const url = `https://router.project-osrm.org/route/v1/driving/${startCoords.lon},${startCoords.lat};${endCoords.lon},${endCoords.lat}?overview=full&geometries=geojson`;
     const response = await fetch(url);
     const data = await response.json();
-
     if (data.routes && data.routes.length > 0) {
-      const coords = data.routes[0].geometry.coordinates.map(([lon, lat]) => ({
+      return data.routes[0].geometry.coordinates.map(([lon, lat]) => ({
         latitude: lat,
         longitude: lon,
       }));
-      return coords;
     }
     return [];
   } catch (error) {
@@ -84,54 +76,39 @@ function HomeScreen({ navigation }) {
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (status !== "granted")
         alert("Permission to access location was denied");
-      }
     })();
   }, []);
 
   const handleStartRide = async () => {
-    if (!startLocation || !endLocation) {
-      alert("Please enter both start and destination locations.");
-      return;
-    }
-    // validate pricePerKm (allow comma as decimal separator)
-    const normalizedPriceStr = (pricePerKm || "").replace(",", ".").trim();
-    const priceNum = parseFloat(normalizedPriceStr);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      alert(
-        "Please enter a valid price per km (use digits, optionally use comma or dot for decimals)."
-      );
-      return;
-    }
+    if (!startLocation || !endLocation)
+      return alert("Please enter both locations.");
+    const normalizedPrice = parseFloat(pricePerKm.replace(",", "."));
+    if (isNaN(normalizedPrice) || normalizedPrice <= 0)
+      return alert("Enter a valid price per km.");
 
     try {
       const startCoords = await geocode(startLocation);
       await new Promise((r) => setTimeout(r, 1500));
       const endCoords = await geocode(endLocation);
 
-      if (!startCoords || startCoords.length === 0) {
-        alert("Start location not found.");
-        return;
-      }
-      if (!endCoords || endCoords.length === 0) {
-        alert("Destination location not found.");
-        return;
-      }
+      if (!startCoords?.length) return alert("Start location not found.");
+      if (!endCoords?.length) return alert("Destination not found.");
 
       const start = startCoords[0];
       const end = endCoords[0];
 
       navigation.navigate("Map", {
-        pricePerKm: priceNum,
+        pricePerKm: normalizedPrice,
         startLocation: start.display_name,
         endLocation: end.display_name,
         startCoords: start,
         endCoords: end,
       });
     } catch (error) {
-      console.error("Error fetching locations:", error);
-      alert("Error finding locations. Please try again.");
+      console.error(error);
+      alert("Error fetching locations.");
     }
   };
 
@@ -146,11 +123,7 @@ function HomeScreen({ navigation }) {
         placeholder="2.00"
         keyboardType="decimal-pad"
         value={pricePerKm}
-        onChangeText={(text) => {
-          // allow only digits, dot and comma
-          const sanitized = text.replace(/[^\d.,]/g, "");
-          setPricePerKm(sanitized);
-        }}
+        onChangeText={(text) => setPricePerKm(text.replace(/[^\d.,]/g, ""))}
       />
 
       <Text style={styles.priceInfo}>Start Location:</Text>
@@ -160,6 +133,7 @@ function HomeScreen({ navigation }) {
         value={startLocation}
         onChangeText={setStartLocation}
       />
+
       <Text style={styles.priceInfo}>Destination:</Text>
       <TextInput
         style={styles.input}
@@ -193,6 +167,7 @@ function MapScreen({ route, navigation }) {
 
   const [rideActive, setRideActive] = useState(false);
   const [locations, setLocations] = useState([]);
+  const locationsRef = useRef([]);
   const [subscription, setSubscription] = useState(null);
   const [simulate, setSimulate] = useState(true);
   const [startTime, setStartTime] = useState(null);
@@ -201,7 +176,12 @@ function MapScreen({ route, navigation }) {
   const [price, setPrice] = useState(0);
   const [routeCoords, setRouteCoords] = useState([]);
 
-  // Load OSRM route when screen mounts
+  // Keep ref updated
+  useEffect(() => {
+    locationsRef.current = locations;
+  }, [locations]);
+
+  // Load OSRM route
   useEffect(() => {
     (async () => {
       const coords = await getRoute(startCoords, endCoords);
@@ -209,63 +189,46 @@ function MapScreen({ route, navigation }) {
     })();
   }, []);
 
-  // Update live distance, price, and time
+  // Interval to update elapsed, distance, price
   useEffect(() => {
-    let interval;
-    if (rideActive && startTime) {
-      interval = setInterval(() => {
-        const now = Date.now();
-        const durationMs = now - startTime;
-        const minutes = Math.floor(durationMs / 1000 / 60);
-        const seconds = Math.floor((durationMs / 1000) % 60);
-        setElapsed(`${minutes}m ${seconds.toString().padStart(2, "0")}s`);
+    if (!rideActive || !startTime) return;
 
-        const totalDistance = getDistance(locations);
-        setDistance(totalDistance);
-        setPrice(totalDistance * pricePerKm);
-      }, 1000);
-    }
-    return () => interval && clearInterval(interval);
-  }, [rideActive, startTime, locations]);
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const durationMs = now - startTime;
+      const minutes = Math.floor(durationMs / 1000 / 60);
+      const seconds = Math.floor((durationMs / 1000) % 60);
+      setElapsed(`${minutes}m ${seconds.toString().padStart(2, "0")}s`);
+
+      const totalDistance = getDistance(locationsRef.current);
+      setDistance(totalDistance);
+      setPrice(totalDistance * pricePerKm);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [rideActive, startTime, pricePerKm]);
 
   const startRide = async () => {
     setRideActive(true);
-    const now = Date.now();
-    setStartTime(now);
+    setStartTime(Date.now());
 
     if (simulate) {
-      if (!routeCoords || routeCoords.length === 0) {
-        alert("No route available for simulation.");
-        return;
-      }
+      if (!routeCoords.length)
+        return alert("No route available for simulation.");
 
       let stepIndex = 0;
-      const totalSteps = routeCoords.length;
-      const startTimestamp = Date.now();
-
-      // Start at the first route coordinate
-      setLocations([
-        {
-          ...routeCoords[0],
-          timestamp: startTimestamp,
-        },
-      ]);
+      setLocations([{ ...routeCoords[0], timestamp: Date.now() }]);
 
       const fakeTracking = setInterval(() => {
-        if (stepIndex >= totalSteps) {
-          clearInterval(fakeTracking);
-          return;
-        }
+        if (stepIndex >= routeCoords.length) return clearInterval(fakeTracking);
 
         const nextPoint = routeCoords[stepIndex];
         setLocations((prev) => [
           ...prev,
           { ...nextPoint, timestamp: Date.now() },
         ]);
-
         stepIndex++;
-      }, 100); // move every 100ms (adjust speed as needed)
-
+      }, 100);
       setSubscription({ remove: () => clearInterval(fakeTracking) });
     } else {
       const sub = await Location.watchPositionAsync(
@@ -274,13 +237,13 @@ function MapScreen({ route, navigation }) {
           timeInterval: 1000,
           distanceInterval: 5,
         },
-        (location) => {
+        (loc) => {
           setLocations((prev) => [
             ...prev,
             {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              timestamp: location.timestamp,
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              timestamp: loc.timestamp,
             },
           ]);
         }
@@ -291,7 +254,7 @@ function MapScreen({ route, navigation }) {
 
   const stopRide = () => {
     setRideActive(false);
-    if (subscription) subscription.remove();
+    subscription?.remove?.();
 
     navigation.navigate("Summary", {
       date: new Date().toLocaleString(),
@@ -312,7 +275,6 @@ function MapScreen({ route, navigation }) {
 
   return (
     <View style={styles.containerMap}>
-      {/* Top status bar */}
       <View style={styles.mapStatusBar}>
         <Text style={styles.statusText}>⏱️ {elapsed}</Text>
         <Text style={styles.statusText}>📍 {distance.toFixed(2)} km</Text>
@@ -328,7 +290,6 @@ function MapScreen({ route, navigation }) {
           longitudeDelta: 0.05,
         }}
       >
-        {/* Start & End Markers */}
         <Marker
           coordinate={{ latitude: startCoords.lat, longitude: startCoords.lon }}
           title="Start"
@@ -337,8 +298,6 @@ function MapScreen({ route, navigation }) {
           coordinate={{ latitude: endCoords.lat, longitude: endCoords.lon }}
           title="Destination"
         />
-
-        {/* OSRM Route Polyline */}
         {routeCoords.length > 0 && (
           <Polyline
             coordinates={routeCoords}
@@ -346,8 +305,6 @@ function MapScreen({ route, navigation }) {
             strokeColor="blue"
           />
         )}
-
-        {/* Traveled Path */}
         {locations.length > 1 && (
           <Polyline coordinates={locations} strokeWidth={4} strokeColor="red" />
         )}
@@ -359,7 +316,7 @@ function MapScreen({ route, navigation }) {
             title="Start Ride"
             onPress={startRide}
             type="primary"
-            fullWidth={true}
+            fullWidth
           />
         )}
         {rideActive && (
@@ -367,7 +324,7 @@ function MapScreen({ route, navigation }) {
             title="Stop Ride"
             onPress={stopRide}
             type="tertiary"
-            fullWidth={true}
+            fullWidth
           />
         )}
         {!rideActive && (
@@ -375,7 +332,7 @@ function MapScreen({ route, navigation }) {
             title={`Simulation: ${simulate ? "ON" : "OFF"}`}
             onPress={() => setSimulate((s) => !s)}
             type="secondary"
-            fullWidth={true}
+            fullWidth
           />
         )}
       </View>
@@ -392,7 +349,8 @@ function SummaryScreen({ route, navigation }) {
     try {
       const existing = await AsyncStorage.getItem("rides");
       const rides = existing ? JSON.parse(existing) : [];
-      rides.push({
+      // add newest ride at the beginning so newest appears at top
+      rides.unshift({
         date: new Date().toLocaleString(),
         distance,
         price,
@@ -429,7 +387,7 @@ function SummaryScreen({ route, navigation }) {
             <CustomButton
               title="Discard / Back to Home"
               onPress={() => navigation.navigate("Home")}
-              type="secondary"
+              type="tertiary"
             />
           </View>
         </>
@@ -451,7 +409,7 @@ function RideHistoryScreen({ navigation }) {
   const loadRides = async () => {
     try {
       const saved = await AsyncStorage.getItem("rides");
-      if (saved) setRides(JSON.parse(saved));
+      if (saved) setRides(JSON.parse(saved)); // stored with newest-first via unshift
     } catch (error) {
       console.error("Error loading rides:", error);
     }
@@ -487,17 +445,17 @@ function RideHistoryScreen({ navigation }) {
         title="Back to Home"
         onPress={() => navigation.navigate("Home")}
         type="primary"
-        style={styles.backButton}
       />
-      <CustomButton
-        title="Remove All Rides"
-        onPress={() => {
-          AsyncStorage.removeItem("rides");
-          setRides([]);
-        }}
-        type="tertiary"
-        style={styles.backButton}
-      />
+      <View style={styles.buttonStack}>
+        <CustomButton
+          title="Remove All Rides"
+          onPress={() => {
+            AsyncStorage.removeItem("rides");
+            setRides([]);
+          }}
+          type="tertiary"
+        />
+      </View>
     </View>
   );
 }

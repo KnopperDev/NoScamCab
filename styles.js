@@ -60,13 +60,24 @@ export default StyleSheet.create({
     borderColor: "#ccc",
     backgroundColor: "#fff",
   },
-
+  // Custom buttons
+  buttonBase: {
+    width: "100%",
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    // marginTop: 15,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   // Bottom button panel (Map screen)
   buttonContainer: {
     position: "absolute",
     bottom: 40,
     left: 20,
     right: 20,
+    gap: 10,
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
@@ -81,16 +92,6 @@ export default StyleSheet.create({
     elevation: 6,
   },
 
-  // Custom buttons
-  buttonBase: {
-    flex: 1,
-    marginHorizontal: 5, // for horizontal spacing
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   buttonPrimary: {
     backgroundColor: "#00dd3fff",
     shadowColor: "#000",
@@ -122,14 +123,13 @@ export default StyleSheet.create({
   },
 
   backButton: {
-    marginTop: 20,
     width: "100%",
   },
 
   // Stacked buttons spacing for Home & Summary screens
   buttonStack: {
     width: "100%",
-    marginTop: 20,
+    marginTop: 15,
   },
 
   // Ride history items
